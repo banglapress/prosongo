@@ -9,16 +9,11 @@ const compat = new FlatCompat({
   baseDirectory: __dirname,
 });
 
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
-  
-  // Add this override for Prisma generated files
+export default [
   {
-    files: ["src/generated/prisma/**/*.js"],
-    rules: {
-      "@typescript-eslint/no-require-imports": "off"
-    }
-  }
+    ignores: [
+      "src/generated/prisma/**" // ✅ completely ignore Prisma generated files
+    ],
+  },
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
 ];
-
-export default eslintConfig;
