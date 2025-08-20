@@ -1,15 +1,208 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum Role {
+  GUEST
+  MEMBER
+  ADMIN
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  phone         String?   @unique
+  phoneVerified DateTime?
+  password      String?
+  role          Role      @default(MEMBER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts          Account[]
+  sessions          Session[]
+  votes             Vote[]
+  pollsCreated      Poll[]             @relation("PollCreator")
+  publications      Publication[]
+  downloads         DownloadLog[]
+  notifications     Notification[]
+  verificationCodes VerificationCode[]
+}
+
+model Account {
+  id                Int     @id @default(autoincrement())
+  userId            Int
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           Int      @id @default(autoincrement())
+  sessionToken String   @unique
+  userId       Int
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model VerificationCode {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  code      String
+  type      String // "email" or "phone"
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Poll {
+  id          Int          @id @default(autoincrement())
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  createdBy   Int?
+  creator     User?        @relation("PollCreator", fields: [createdBy], references: [id])
+  options     PollOption[]
+  votes       Vote[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model PollOption {
+  id     Int    @id @default(autoincrement())
+  poll   Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  pollId Int
+  text   String
+  votes  Vote[]
+}
+
+model Vote {
+  id       Int        @id @default(autoincrement())
+  poll     Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  pollId   Int
+  option   PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  optionId Int
+  user     User?      @relation(fields: [userId], references: [id])
+  userId   Int?
+  ip       String
+  votedAt  DateTime   @default(now())
+
+  @@index([pollId, ip])
+  @@index([pollId, userId])
+}
+
+model Village {
+  id        Int               @id @default(autoincrement())
+  name      String
+  district  String
+  upazila   String
+  unionName String
+  latitude  Float?
+  longitude Float?
+  stats     VillageStat[]
+  problems  VillageProblem[]
+  prospects VillageProspect[]
+  media     VillageMedia[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+}
+
+model VillageStat {
+  id             Int      @id @default(autoincrement())
+  village        Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  villageId      Int
+  year           Int
+  population     Int?
+  literacyRate   Float?
+  povertyRate    Float?
+  internetAccess Boolean?
+  additional     Json?
+  createdAt      DateTime @default(now())
+}
+
+model VillageProblem {
+  id          Int      @id @default(autoincrement())
+  village     Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  villageId   Int
+  category    String
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model VillageProspect {
+  id          Int      @id @default(autoincrement())
+  village     Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  villageId   Int
+  category    String
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model VillageMedia {
+  id         Int      @id @default(autoincrement())
+  village    Village  @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  villageId  Int
+  url        String
+  type       String // "image","video","document"
+  caption    String?
+  uploadedAt DateTime @default(now())
+}
+
+model Publication {
+  id           Int           @id @default(autoincrement())
+  title        String
+  abstract     String?
+  fileUrl      String
+  isPremium    Boolean       @default(false)
+  uploadedBy   Int?
+  uploader     User?         @relation(fields: [uploadedBy], references: [id])
+  createdAt    DateTime      @default(now())
+  downloadLogs DownloadLog[]
+}
+
+model DownloadLog {
+  id            Int         @id @default(autoincrement())
+  user          User        @relation(fields: [userId], references: [id])
+  userId        Int
+  publication   Publication @relation(fields: [publicationId], references: [id])
+  publicationId Int
+  downloadedAt  DateTime    @default(now())
+}
+
+model Notification {
+  id        Int       @id @default(autoincrement())
+  title     String
+  content   String
+  forAll    Boolean   @default(true)
+  user      User?     @relation(fields: [userId], references: [id])
+  userId    Int?
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
 }
